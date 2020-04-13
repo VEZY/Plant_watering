@@ -21,21 +21,24 @@ long Bot_lasttime;   //last time messages' scan has been done
 
 // Floater in the water tank: 
 int water_level = 2;
-bool is_level_change= false;
-int prev_water_level= 2; // To keep trace of the water level from the previous loop execution
+bool is_level_change= false; // Keep trace of a change in tank level
+int prev_water_level= 2;     // To keep trace of the water level from the previous loop execution
 
 // Soil Moisture sensor: 
-int moisture= 0; // Initializing moisture to 0
-int moisture_perc= 0;
-const int AirValue = 780;   // Driest value -> air value
+int moisture= 0;             // Initializing moisture to 0
+int moisture_perc= 0;        // Moisture in %
+const int AirValue = 780;    // Driest value -> air value
 const int WaterValue = 280;  // Wettest value -> water value
 
 // Timer to avoid wattering for too long: 
 int watering_max_time = 300000;       // Maximal time for one wattering event (5 minutes)
-int watering_interval_min = 18000000; // Minimal time to wait before two waterring events (5 hours here)
-long last_watering_start= 0.0 ; // time since the waterring event as been started
-long last_watering_end= -watering_interval_min; // time since the last waterring event as been ended
+int watering_interval_min = 10800000; // Minimal time to wait before two waterring events (5 hours here)
+long last_watering_start = 0.0 ;       // time since the waterring event as been started
+long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
+long max_wo_water = 259200000; // Maximum days without wattering until notification to say there's probably an issue with th system
+
+
 
 void setup() {
   // Set up the connexion to see the values from the moisture sensor:
@@ -112,7 +115,11 @@ void loop() {
       last_watering_end= millis();  
       myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
     }
-     
+
+    if (last_watering_end > (millis()+max_wo_water)){
+      myBot.sendMessage(chatID, (String)"Plants were not wattered since"+(max_wo_water/86400000)+"days. Please check the system.");
+    }     
+    
   } else {
     // If there is no water in the tank, problem !!
     // Powering down the pump in case it was running:
