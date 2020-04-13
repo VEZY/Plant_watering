@@ -9,7 +9,7 @@ int water_level = 2;
 // Soil Moisture sensor: 
 int moisture= 0; // Initializing moisture to 0
 int moisture_perc= 0;
-const int AirValue = 750;   // Driest value -> air value
+const int AirValue = 780;   // Driest value -> air value
 const int WaterValue = 280;  // Wettest value -> water value
 
 void setup() {
