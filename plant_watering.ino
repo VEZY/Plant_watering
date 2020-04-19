@@ -11,10 +11,12 @@ int chatID = -000000000; // This the ID of our group chat for the plants
 CTBot myBot;
 CTBotInlineKeyboard myKbd;  // custom inline keyboard object helper
 
-#define LIGHT_ON_CALLBACK  "IsSystemON"  // callback data sent when "LIGHT ON" button is pressed
-#define LIGHT_OFF_CALLBACK "lightOFF" // callback data sent when "LIGHT OFF" button is pressed
+#define IS_SYSTEM_ON_CALLBACK  "isSystemON"   // callback data sent when "Is The system ON?" button is pressed
+#define SOIL_MOISTURE_CALLBACK "soilMoisture" // callback data sent when "Show soil moisture" button is pressed
+#define SYSTEM_OFF_CALLBACK "systemOFF"       // callback data sent when "Shut down the system" button is pressed
+#define SYSTEM_ON_CALLBACK "systemON"         // callback data sent when "Turn on the system" button is pressed
 
-int Bot_mtbs = 1000; //mean time between scan messages
+#define Bot_mtbs 1000 //mean time between scan messages
 long Bot_lasttime;   //last time messages' scan has been done
 
 #define interval 1000 // Interval between readings
@@ -24,14 +26,17 @@ long Bot_lasttime;   //last time messages' scan has been done
 #define soil_moisture  A0
 #define tank_floater  16
 
+// State of the whole system:
+bool system_on = true;
+
 // Floater in the water tank: 
 int water_level = 2;
-bool is_level_change= false; // Keep trace of a change in tank level
-int prev_water_level= 2;     // To keep trace of the water level from the previous loop execution
+bool is_level_change = false; // Keep trace of a change in tank level
+int prev_water_level = 2;     // To keep trace of the water level from the previous loop execution
 
 // Soil Moisture sensor: 
-int moisture= 0;             // Initializing moisture to 0
-int moisture_perc= 0;        // Moisture in %
+int moisture = 0;             // Initializing moisture to 0
+int moisture_perc = 0;        // Moisture in %
 const int AirValue = 780;    // Driest value -> air value
 const int WaterValue = 280;  // Wettest value -> water value
 
@@ -67,15 +72,20 @@ void setup() {
     Serial.println("\nTelegram connection test: problem");
   }
 
-  
-  // inline keyboard customization for Telegram
-  // add a query button to the first row of the inline keyboard
-  myKbd.addButton("Is The system ON?", LIGHT_ON_CALLBACK, CTBotKeyboardButtonQuery);
-  // add another query button to the first row of the inline keyboard
-  myKbd.addButton("Show soil moisture", LIGHT_OFF_CALLBACK, CTBotKeyboardButtonQuery);
+  // Inline keyboard for Telegram (set the buttons):
+  // Add a query button to the first row of the inline keyboard to know if the system is ON:
+  myKbd.addButton("Is The system ON?", IS_SYSTEM_ON_CALLBACK, CTBotKeyboardButtonQuery);
+  // Add another query button to the first row of the inline keyboard to get the soil moisture:
+  myKbd.addButton("Show soil moisture", SOIL_MOISTURE_CALLBACK, CTBotKeyboardButtonQuery);
   // add a new empty button row
   myKbd.addRow();
-  // add a URL button to the second row of the inline keyboard
+  // add a query button to the second row of the inline keyboard for setting the system OFF:
+  myKbd.addButton("Shut down the system", SYSTEM_OFF_CALLBACK, CTBotKeyboardButtonQuery);
+  // add another query button to the second row of the inline keyboard for setting the system ON:
+  myKbd.addButton("Turn on the system", SYSTEM_ON_CALLBACK, CTBotKeyboardButtonQuery);
+  // add a new empty button row
+  myKbd.addRow();
+  // add a URL button to the third row of the inline keyboard for documentation:
   myKbd.addButton("see docs", "https://github.com/shurillu/CTBot", CTBotKeyboardButtonURL);
 }
 
@@ -88,7 +98,7 @@ void loop() {
   water_level= digitalRead(tank_floater);
   TBMessage msg; // Store telegram message
 
-  // if there is an incoming message from Telegram:
+  // Check if there is an incoming message from Telegram:
   if (myBot.getNewMessage(msg)) {
     // check what kind of message was received
     if (msg.messageType == CTBotMessageText) {
@@ -102,79 +112,87 @@ void loop() {
       }
     } else if (msg.messageType == CTBotMessageQuery) {
       // received a callback query message
-      if (msg.callbackQueryData.equals(LIGHT_ON_CALLBACK)) {
+      if (msg.callbackQueryData.equals(IS_SYSTEM_ON_CALLBACK)) {
         // Say if the system is running: 
         myBot.endQuery(msg.callbackQueryID, "The system is up and running!", true);
-      } else if (msg.callbackQueryData.equals(LIGHT_OFF_CALLBACK)) {
+      } else if (msg.callbackQueryData.equals(SOIL_MOISTURE_CALLBACK)) {
         // Return the soil moisture as a popup message
-        myBot.endQuery(msg.callbackQueryID, (String)"Soil Moisture : "+moisture_perc+"%"+"("+moisture+")");
+        myBot.endQuery(msg.callbackQueryID, (String)"Soil Moisture : "+moisture_perc+"%"+"("+moisture+")",true);
+      } else if (msg.callbackQueryData.equals(SYSTEM_OFF_CALLBACK)) {
+        // Turn off the system.
+        system_on= false;
+        myBot.endQuery(msg.callbackQueryID, "Shutting down the system");
+      } else if (msg.callbackQueryData.equals(SYSTEM_ON_CALLBACK)) {
+        // Return the soil moisture as a popup message
+        system_on= true;
+        myBot.endQuery(msg.callbackQueryID, "Re-starting the system");
       }
     }
   }
 
-
-
+  // Start of the actual program for the system (only if system_on is ON): 
+  if (system_on){
+    
+    if (water_level == prev_water_level) {
+      is_level_change = false;
+    } else {
+      is_level_change = true;
+    }
   
-  if (water_level == prev_water_level) {
-    is_level_change = false;
-  } else {
-    is_level_change = true;
-  }
-
-  if (water_level == HIGH) {
-    // If there is water in the tank...
-    // Print the moisture to the console: 
-    Serial.print((String)"Soil Moisture : "+moisture_perc+"%"+"("+moisture+")"+"\n");
-
-    // If tank was just refilled: 
-    if (is_level_change) {
+    if (water_level == HIGH) {
+      // If there is water in the tank...
+      // Print the moisture to the console: 
+      Serial.print((String)"Soil Moisture : "+moisture_perc+"%"+"("+moisture+")"+"\n");
+  
+      // If tank was just refilled: 
+      if (is_level_change) {
+        // Sending a message via Telegram (only if it wasn't said already, and it didn't change just before)
+        if ((millis() > Bot_lasttime + Bot_mtbs))  {
+          myBot.sendMessage(chatID, "Thank you for refilling the water tank !");
+          Bot_lasttime = millis();
+        }
+      }
+  
+      if ((millis() > last_watering_end + watering_interval_min) && (moisture_perc <= 30)) {
+        // Waterring can only start after a minimum given period of time (watering_interval_min)
+        last_watering_start= millis(); // starting wattering
+  
+        myBot.sendMessage(chatID, "Starting plant wattering !");
+        
+        while (moisture_perc <= 30) {
+          digitalWrite(relay, HIGH);
+          moisture = analogRead(soil_moisture);
+          moisture_perc = map(moisture,WaterValue,AirValue,100,0);
+          
+          if(millis() > last_watering_start + watering_max_time){
+            // If the system is wattering for more than watering_max_time, stop wattering
+            myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds but they are still thirsty. Try to set watering_max_time to a higher value");
+            break;
+          }
+          delay(500);                // 500ms delay
+        } 
+        
+        last_watering_end= millis();  
+        myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
+      }
+  
+      if (last_watering_end > (millis()+max_wo_water)){
+        myBot.sendMessage(chatID, (String)"Plants were not wattered since"+(max_wo_water/86400000)+"days. Please check the system.");
+      }     
+      
+    } else {
+      // If there is no water in the tank, problem !!
+      // Powering down the pump in case it was running:
+      digitalWrite(relay, LOW);
+      Serial.print((String)"Water tank empty. Please refill with water !"+"(soil Moisture : "+moisture_perc+"%)"+"\n");
+  
       // Sending a message via Telegram (only if it wasn't said already, and it didn't change just before)
-      if ((millis() > Bot_lasttime + Bot_mtbs))  {
-        myBot.sendMessage(chatID, "Thank you for refilling the water tank !");
+      if ((millis() > Bot_lasttime + Bot_mtbs) && is_level_change)  {
+        myBot.sendMessage(chatID, "The water tank is empty, please refill before all plants die !");
         Bot_lasttime = millis();
       }
     }
-
-    if ((millis() > last_watering_end + watering_interval_min) && (moisture_perc <= 30)) {
-      // Waterring can only start after a minimum given period of time (watering_interval_min)
-      last_watering_start= millis(); // starting wattering
-
-      myBot.sendMessage(chatID, "Starting plant wattering !");
-      
-      while (moisture_perc <= 30) {
-        digitalWrite(relay, HIGH);
-        moisture = analogRead(soil_moisture);
-        moisture_perc = map(moisture,WaterValue,AirValue,100,0);
-        
-        if(millis() > last_watering_start + watering_max_time){
-          // If the system is wattering for more than watering_max_time, stop wattering
-          myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds but they are still thirsty. Try to set watering_max_time to a higher value");
-          break;
-        }
-        delay(500);                // 500ms delay
-      } 
-      
-      last_watering_end= millis();  
-      myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
-    }
-
-    if (last_watering_end > (millis()+max_wo_water)){
-      myBot.sendMessage(chatID, (String)"Plants were not wattered since"+(max_wo_water/86400000)+"days. Please check the system.");
-    }     
-    
-  } else {
-    // If there is no water in the tank, problem !!
-    // Powering down the pump in case it was running:
-    digitalWrite(relay, LOW);
-    Serial.print((String)"Water tank empty. Please refill with water !"+"(soil Moisture : "+moisture_perc+"%)"+"\n");
-
-    // Sending a message via Telegram (only if it wasn't said already, and it didn't change just before)
-    if ((millis() > Bot_lasttime + Bot_mtbs) && is_level_change)  {
-      myBot.sendMessage(chatID, "The water tank is empty, please refill before all plants die !");
-      Bot_lasttime = millis();
-    }
   }
-
   // Always shut off the water pump in any other case:
   digitalWrite(relay, LOW);
     
