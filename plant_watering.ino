@@ -47,11 +47,11 @@ const int WaterValue = 280;  // Wettest value -> water value
 
 // Timer to avoid wattering for too long: 
 int watering_max_time = 300000;       // Maximal time for one wattering event (5 minutes)
-int watering_interval_min = 10800000; // Minimal time to wait before two waterring events (3 hours here)
+int watering_interval_min = 10800000L; // Minimal time to wait before two waterring events (3 hours here)
 long last_watering_start = 0.0 ;      // time since the waterring event as been started
 long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
-long max_wo_water = 259200000; // Maximum days without wattering until notification to say there's probably an issue with th system
+long max_wo_water = 259200000L; // Maximum days without wattering until notification to say there's probably an issue with th system
 
 
 #define max_soil_moisture 30         // Max soil moisture (stop when reached):
@@ -94,7 +94,7 @@ void setup() {
   // add a new empty button row
   myKbd.addRow();
   // add another query button to the third row of the inline keyboard for setting the water pump ON:
-  myKbd.addButton((String)"Turn on the water pump for "+manual_watering_duration+" seconds", PUMP_ON_CALLBACK, CTBotKeyboardButtonQuery);
+  myKbd.addButton((String)"Turn on the water pump for "+(manual_watering_duration/1000)+" seconds", PUMP_ON_CALLBACK, CTBotKeyboardButtonQuery);
   // add a new empty button row
   myKbd.addRow();
   // add a URL button to the fourth row of the inline keyboard for documentation:
@@ -141,7 +141,7 @@ void loop() {
       } else if (msg.callbackQueryData.equals(PUMP_ON_CALLBACK)) {
         // Turn on the pump manually.
         pump_manual_state = true;
-        myBot.endQuery(msg.callbackQueryID, (String)"Starting manual watering for "+manual_watering_duration/1000+" second");
+        myBot.endQuery(msg.callbackQueryID, (String)"Starting manual watering for "+(manual_watering_duration/1000)+" second");
       }
     }
   }
@@ -169,7 +169,7 @@ void loop() {
         }
       }
 
-      if ((((millis() > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) || pump_manual_state) {
+      if ((((long(millis()) > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) || pump_manual_state) {
         // /!\ START WATERING /!\
         // NB: watering can only start after a minimum given period of time (watering_interval_min), or if it terminated unexpectedly just before;
         // or if the user request a manual activation (pump_manual_state).
@@ -227,10 +227,11 @@ void loop() {
         myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
       }
   
-      if (last_watering_end > (millis()+max_wo_water)){
-        myBot.sendMessage(chatID, (String)"Plants were not wattered since"+(max_wo_water/86400000)+"days. Please check the system.");
-      }     
-      
+      if ((last_watering_end > (long(millis()) + max_wo_water)) && (millis() > Bot_lasttime + Bot_mtbs)){
+        // NB: using long(millis()) because at first last_watering_end is negative and millis() is an unsigned long.
+        myBot.sendMessage(chatID, (String)"Plants were not wattered since "+(max_wo_water/86400000)+" days. Please check the system.");
+        Bot_lasttime = millis();
+      }
     } else {
       // If there is no water in the tank, problem !!
       // Powering down the pump in case it was running:
