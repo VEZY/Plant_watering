@@ -1,11 +1,85 @@
-# Autonomous plant watering system
+# 🌊🌳 Autonomous plant watering system <img src="logo/logo.svg" alt="" width="350" align="right" />
 
+---
 ## Introduction
 
-This is a project to water the plants automatically when the soil moisture is low, while running autonomously using a solar panel and a battery.
-The system also communicates using Telegram to send information about the watering (watering duration, alerts...), and accept requests from the user such as turning the system OFF or ON, returning the soil moisture or simply telling if the system is up and running.
+This project presents a smart autonomous plant watering system. The system is autonomous in energy using a 12v battery and a solar panel, and water the plant when the right conditions are all set, with a well thought (I hope) fail-proof system. It is smart because it communicated with the user(s) through the Telegram app.
 
-## Material
+The steps followed by the system are as follows:
+- the soil water content is always monitored;
+- if the soil water content is below a certain value (`max_soil_moisture`), the system:
+  * (🔔) checks the water tank is not empty (and during) the watering event to avoid any damage to the pump running dry;
+  * (🔔) checks the minimum water period between two watering events is exceeded. This is done to avoid watering the plants too many times during the day (better have a little dryness at some point), and to add some safety in case the soil moisture sensor is broken;
+  * (🔔) start the irrigation ;
+  * stops the irrigation whenever:
+    + (🔔) the soil water content reaches a certain value (`max_soil_moisture`) or;
+    + (🔔) the water tank is empty, in which case irrigation will resume as soon as it is filled again, or;
+    + (🔔) the watering duration exceeds the maximum duration allowed for each watering event (`watering_max_time`). The aim here is to avoid running the pump until the water tank is empty if there is a leak in the system that would prevent the soil moisture to increase;
+- (🔔) checks that plants are watered at least every given period of time (`max_wo_water`), to avoid them to die if e.g. the soil moisture sensor is broken and return always high values ;
+
+The user is notified by Telegram messages at every important step (denoted 🔔). The user can also trigger manually an irrigation event from Telegram, even if the soil water content is higher than the given value (`max_soil_moisture`). He can also turn the whole system ON and OFF, ask if the system is up and running, or ask the current value of the soil water content.
+
+## Set up yours
+
+To reproduce this project, you'll need some tools, some material, and the code from this project.
+
+### Code
+
+To get the code from this project, either clone it (or better, fork it) using GIT, and if you don't know what GIT, clone and fork means, simply download it on your computer using [this link](https://github.com/VEZY/Plant_watering/archive/master.zip) 😺.
+
+Then, configure it to your needs !
+
+To use Telegram, the NodeMCU needs to be connected to the internet. I did it using its WIFI module and my home WIFI.
+To configure your own connection, open the `plant_watering.ino` script in Arduino IDE, and fill-in the missing values for your wifi credentials (I'm assuming you have WiFi):
+
+```c
+String ssid  = "xxxxx"; // Name of your Wifi
+String pass  = "xxxxx"; // Wifi Password
+```
+
+Then, we'll set up a Telegram bot, which is an user account a little like you have, but actually run by a robot (your NodeMCU). To do so, follow the steps described [here](https://core.telegram.org/bots#6-botfather). In few words:
+- Open Telegram (and connect with your account);
+- Create a new bot:
+ * Search `BotFather` in your contacts (type it in the search bar), and open a conversation with it (as you'd do with any new contact);
+ * Type `/newbot` in the conversation (watch for the case and include the `/`!)
+ * Name your bot as you want, but end it with "bot" (e.g. "watering_balcony_bot");
+ * `Botfather` gives you a bot token, keep it very secret (don't share it using GIT!!), we'll use it in few steps;
+ * Search it in your contacts, and send it this message: `/start`
+ * Copy the token returned by `Botfather` and paste it on your `plant_watering.ino` script here:
+```c
+String token = "xxxxxx:xxxxxxxxxxxxxxxxxxxxxxx"; // Telegram bot token
+```
+
+Your bot is now alive !
+
+To give it the ability to communicate with you, it needs to know your conversation ID. Because we want to be able to share what the bot is saying with other people in case we go out in vacation, I prefer to create a group chat instead. So create one (`New Group`), add your bot by searching its name, and add a third bot named `IDBot` temporarily. Then name your group chat as you want.
+Open your group chat, and type `/getgroupid`. IDBot will return a number such as -xxxxxxxxx (don't forget the minus when you copy it!), that's your group chat ID!
+> you can also ask `/getid` to get your personal ID, so your bot will send messages directly to you instead (not sending it to the group)
+
+Copy the ID, and paste it on your `plant_watering.ino` script here:
+```c
+int chatID = -000000000; // This the ID of your group chat
+```
+> Paste the `/getid` here instead if you want the bot to send messages directly to you
+
+Then, remove IDBot from your group just in case (we don't want any data leaked).
+
+For the last step, you'll need to install the `CTBot` and `ArduinoJson` libraries. To do so, type `ctrl+maj+I`, search `CTBot`, and search for `CTBot by Stefano Ledda`, and click install. Then repeat for `ArduinoJson`, and search for `ArduinoJson by Benoit Blanchon`, but install the version 5.13.5 for now because `CTBot` is not compatible with the sixth version yet (you can check [here](https://github.com/shurillu/CTBot) if there are any changes).
+
+And that's it, your code is ready !
+Now you can upload it to the NodeMCU! If there are some errors, check that you selected NodeMCU 1.0 as the board type, and that you use the right version for your libraries.
+
+### Tools
+
+The tools are very simple, I used for this project:
+- A soldering iron + tin (e.g. 220V 60W);
+- A multimeter (mine is a TackLife DM01M);
+- A flat screwdriver (tiny is better);
+- Cutting pliers;
+
+If you have them you can also add some wire strippers, but they are not indispensable.
+
+### Material
 
 Here is a list of the products used to build the system. I must say that I receive no incentives from Amazon, from which all products were bought.
 
@@ -31,8 +105,14 @@ For the water tank:
 The sensors:
 - [Water level floater](https://www.amazon.fr/gp/product/B01MTYPK9I/ref=ppx_yo_dt_b_asin_title_o05_s02?ie=UTF8&psc=1), 7.99€
 - [Capacitive soil moisture sensor](https://www.amazon.fr/gp/product/B07WCB3GCB/ref=ppx_od_dt_b_asin_title_s02?ie=UTF8&psc=1), 9.49€
+- some nail polish for waterproofing the soil moisture sensor, 7.99€;
 
 And the irrigation system:
 - [Irrigation system](https://www.amazon.fr/gp/product/B07MSJSMXK/ref=ppx_yo_dt_b_asin_title_o05_s01?ie=UTF8&psc=1), 22.97€
 
-For a total of 229.41€, which is not cheap! But keep in mind that it's still cheaper than a pre-built system with a lot less capabilities. Also, some parts are only for prototyping (15.98€), and I purchased many components in groups of several pieces to re-use the parts for other projects, e.g. 525 resistors is a crazy amount, you don't need 3 NodeMCU boards, nor 6 relays for this project.
+For a total of 237.40€. That's not cheap!
+But keep in mind that it's still cheaper than a pre-built system, and with a lot more capabilities! Also, some parts are only for prototyping (15.98€), and I purchased many components in groups of several pieces for other projects, e.g. 525 resistors is a crazy amount 🤪, you don't need 3 NodeMCU boards, nor 6 relays for this project.
+
+### Assembly
+
+Coming soon...  
