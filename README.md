@@ -115,3 +115,7 @@ But keep in mind that it's still cheaper than a pre-built system, and with a lot
 ### Assembly
 
 Coming soon...  
+
+## Acknowledgements
+
+I would like to acknowledge my wonderful partner that let me do this during the weekends ! And of course all the makers that made the project possible, such as @shurillu for the super [`CTBot`](https://github.com/shurillu/CTBot) library! 
