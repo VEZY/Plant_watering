@@ -1,4 +1,4 @@
-# 🌊🌳 Autonomous plant watering system <img src="logo/logo.svg" alt="" width="350" align="right" />
+# 🌊🌳 Autonomous plant watering system <img src="logo/logo.svg" alt="" width="300" align="right" />
 
 ---
 ## Introduction
