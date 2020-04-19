@@ -19,7 +19,7 @@ CTBotInlineKeyboard myKbd;  // custom inline keyboard object helper
 #define Bot_mtbs 1000 //mean time between scan messages
 long Bot_lasttime;   //last time messages' scan has been done
 
-#define interval 1000 // Interval between readings
+#define interval 500 // Interval between readings
 
 // Define pins: 
 #define relay 13
@@ -37,17 +37,20 @@ int prev_water_level = 2;     // To keep trace of the water level from the previ
 // Soil Moisture sensor: 
 int moisture = 0;             // Initializing moisture to 0
 int moisture_perc = 0;        // Moisture in %
-const int AirValue = 780;    // Driest value -> air value
+const int AirValue = 750;    // Driest value -> air value
 const int WaterValue = 280;  // Wettest value -> water value
 
 // Timer to avoid wattering for too long: 
 int watering_max_time = 300000;       // Maximal time for one wattering event (5 minutes)
 int watering_interval_min = 10800000; // Minimal time to wait before two waterring events (3 hours here)
-long last_watering_start = 0.0 ;       // time since the waterring event as been started
+long last_watering_start = 0.0 ;      // time since the waterring event as been started
 long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
 long max_wo_water = 259200000; // Maximum days without wattering until notification to say there's probably an issue with th system
 
+
+#define max_soil_moisture 30         // Max soil moisture (stop when reached):
+bool unexpected_watering_end = false;// Flag unexpected end of a watering event
 
 
 void setup() {
@@ -83,8 +86,6 @@ void setup() {
   myKbd.addButton("Shut down the system", SYSTEM_OFF_CALLBACK, CTBotKeyboardButtonQuery);
   // add another query button to the second row of the inline keyboard for setting the system ON:
   myKbd.addButton("Turn on the system", SYSTEM_ON_CALLBACK, CTBotKeyboardButtonQuery);
-  // add a new empty button row
-  myKbd.addRow();
   // add a URL button to the third row of the inline keyboard for documentation:
   myKbd.addButton("see docs", "https://github.com/shurillu/CTBot", CTBotKeyboardButtonURL);
 }
@@ -103,12 +104,12 @@ void loop() {
     // check what kind of message was received
     if (msg.messageType == CTBotMessageText) {
       // received a text message
-      if (msg.text.equalsIgnoreCase("show keyboard")) {
+      if (msg.text.equalsIgnoreCase("Show keyboard")) {
         // the user is asking to show the inline keyboard --> show it
         myBot.sendMessage(msg.sender.id, "Inline Keyboard", myKbd);
       } else {
         // the user write anithing else --> show a hint message
-        myBot.sendMessage(msg.sender.id, "Try 'show keyboard' to get the keyboard options.");
+        myBot.sendMessage(msg.sender.id, "Try 'Show keyboard' to get the keyboard options.");
       }
     } else if (msg.messageType == CTBotMessageQuery) {
       // received a callback query message
@@ -152,27 +153,52 @@ void loop() {
           Bot_lasttime = millis();
         }
       }
-  
-      if ((millis() > last_watering_end + watering_interval_min) && (moisture_perc <= 30)) {
-        // Waterring can only start after a minimum given period of time (watering_interval_min)
-        last_watering_start= millis(); // starting wattering
-  
+
+      if (((millis() > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) {
+        // /!\ START WATERING /!\
+        // NB: watering can only start after a minimum given period of time (watering_interval_min), or if it terminated unexpectedly just before
+        
+        last_watering_start= millis(); // Record the time of watering start
+
+        // Resetting the flag for unexpected end of watering to false when entering the watering (if stopped because the tank was empty):
+        unexpected_watering_end = false;
+        
         myBot.sendMessage(chatID, "Starting plant wattering !");
         
-        while (moisture_perc <= 30) {
+        while (moisture_perc <= max_soil_moisture) {
+
+          // Check if there is water in the tank:
+          water_level= digitalRead(tank_floater);
+          if(water_level == LOW){
+            // If there is no more water in the tank during a watering event, stop the pump, and stop the event.
+            digitalWrite(relay, LOW);
+            myBot.sendMessage(chatID, "Hu-ho, I emptied the water tank during plant watering, please re-fill!");
+            // NB: not using `last_watering_end= millis();` here because we want to continue the plant watering whenever the tank is re-filled
+
+            // Flag the waterring as not finished so we can re-enter the loop whenever the tank is re-filled: 
+            unexpected_watering_end = true;
+            break;
+          }          
+
+          if(millis() > last_watering_start + watering_max_time){
+            // Make sure the system is not watering for more than watering_max_time, and if so, stop watering and make sure the pump is shut off.
+            last_watering_end= millis();
+            digitalWrite(relay, LOW);
+            myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds but they are still thirsty. Try to set watering_max_time to a higher value");
+            break;
+          }
+
+          // If everything is OK, start watering:
           digitalWrite(relay, HIGH);
           moisture = analogRead(soil_moisture);
           moisture_perc = map(moisture,WaterValue,AirValue,100,0);
           
-          if(millis() > last_watering_start + watering_max_time){
-            // If the system is wattering for more than watering_max_time, stop wattering
-            myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds but they are still thirsty. Try to set watering_max_time to a higher value");
-            break;
-          }
+          last_watering_end= millis();  
           delay(500);                // 500ms delay
-        } 
-        
-        last_watering_end= millis();  
+        }
+
+        // Shut down the pump when wattering is finished (happens here only when soil_moisture > max_soil_moisture)
+        digitalWrite(relay, LOW);
         myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
       }
   
@@ -193,7 +219,8 @@ void loop() {
       }
     }
   }
-  // Always shut off the water pump in any other case:
+  
+  // Always make sure the water pump is OFF at the end of the loop just in case:
   digitalWrite(relay, LOW);
     
   prev_water_level= water_level;
