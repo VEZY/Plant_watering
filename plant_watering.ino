@@ -15,6 +15,7 @@ CTBotInlineKeyboard myKbd;  // custom inline keyboard object helper
 #define SOIL_MOISTURE_CALLBACK "soilMoisture" // callback data sent when "Show soil moisture" button is pressed
 #define SYSTEM_OFF_CALLBACK "systemOFF"       // callback data sent when "Shut down the system" button is pressed
 #define SYSTEM_ON_CALLBACK "systemON"         // callback data sent when "Turn on the system" button is pressed
+#define PUMP_ON_CALLBACK "pumpON"             // callback data sent when "Turn on the water pump" button is pressed
 
 #define Bot_mtbs 1000 //mean time between scan messages
 long Bot_lasttime;   //last time messages' scan has been done
@@ -28,6 +29,10 @@ long Bot_lasttime;   //last time messages' scan has been done
 
 // State of the whole system:
 bool system_on = true;
+
+// State of the pump in manual mode: 
+bool pump_manual_state = false;
+int manual_watering_duration = 30000; // Manual watering duration
 
 // Floater in the water tank: 
 int water_level = 2;
@@ -86,7 +91,13 @@ void setup() {
   myKbd.addButton("Shut down the system", SYSTEM_OFF_CALLBACK, CTBotKeyboardButtonQuery);
   // add another query button to the second row of the inline keyboard for setting the system ON:
   myKbd.addButton("Turn on the system", SYSTEM_ON_CALLBACK, CTBotKeyboardButtonQuery);
-  // add a URL button to the third row of the inline keyboard for documentation:
+  // add a new empty button row
+  myKbd.addRow();
+  // add another query button to the third row of the inline keyboard for setting the water pump ON:
+  myKbd.addButton((String)"Turn on the water pump for "+manual_watering_duration+" seconds", PUMP_ON_CALLBACK, CTBotKeyboardButtonQuery);
+  // add a new empty button row
+  myKbd.addRow();
+  // add a URL button to the fourth row of the inline keyboard for documentation:
   myKbd.addButton("see docs", "https://github.com/shurillu/CTBot", CTBotKeyboardButtonURL);
 }
 
@@ -121,12 +132,16 @@ void loop() {
         myBot.endQuery(msg.callbackQueryID, (String)"Soil Moisture : "+moisture_perc+"%"+"("+moisture+")",true);
       } else if (msg.callbackQueryData.equals(SYSTEM_OFF_CALLBACK)) {
         // Turn off the system.
-        system_on= false;
+        system_on = false;
         myBot.endQuery(msg.callbackQueryID, "Shutting down the system");
       } else if (msg.callbackQueryData.equals(SYSTEM_ON_CALLBACK)) {
         // Return the soil moisture as a popup message
-        system_on= true;
+        system_on = true;
         myBot.endQuery(msg.callbackQueryID, "Re-starting the system");
+      } else if (msg.callbackQueryData.equals(PUMP_ON_CALLBACK)) {
+        // Turn on the pump manually.
+        pump_manual_state = true;
+        myBot.endQuery(msg.callbackQueryID, (String)"Starting manual watering for "+manual_watering_duration/1000+" second");
       }
     }
   }
@@ -154,9 +169,10 @@ void loop() {
         }
       }
 
-      if (((millis() > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) {
+      if ((((millis() > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) || pump_manual_state) {
         // /!\ START WATERING /!\
-        // NB: watering can only start after a minimum given period of time (watering_interval_min), or if it terminated unexpectedly just before
+        // NB: watering can only start after a minimum given period of time (watering_interval_min), or if it terminated unexpectedly just before;
+        // or if the user request a manual activation (pump_manual_state).
         
         last_watering_start= millis(); // Record the time of watering start
 
@@ -165,7 +181,7 @@ void loop() {
         
         myBot.sendMessage(chatID, "Starting plant wattering !");
         
-        while (moisture_perc <= max_soil_moisture) {
+        while ((moisture_perc <= max_soil_moisture) || pump_manual_state) {
 
           // Check if there is water in the tank:
           water_level= digitalRead(tank_floater);
@@ -182,9 +198,18 @@ void loop() {
 
           if(millis() > last_watering_start + watering_max_time){
             // Make sure the system is not watering for more than watering_max_time, and if so, stop watering and make sure the pump is shut off.
-            last_watering_end= millis();
+            last_watering_end = millis();
             digitalWrite(relay, LOW);
             myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds but they are still thirsty. Try to set watering_max_time to a higher value");
+            break;
+          }
+
+          if(pump_manual_state && (millis() > last_watering_start + manual_watering_duration)){
+            // If the user request a manual waterring, water until manual_watering_duration
+            last_watering_end = millis();
+            pump_manual_state = false;
+            digitalWrite(relay, LOW);
+            myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds after your request.");
             break;
           }
 
