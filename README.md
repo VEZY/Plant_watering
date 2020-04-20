@@ -118,4 +118,4 @@ Coming soon...
 
 ## Acknowledgements
 
-I would like to acknowledge my wonderful partner that let me do this during the weekends ! And of course all the makers that made the project possible, such as @shurillu for the super [`CTBot`](https://github.com/shurillu/CTBot) library! 
+I would like to acknowledge my wonderful partner that let me do this during the weekends! And of course all the makers that made the project possible, such as @shurillu for the super [`CTBot`](https://github.com/shurillu/CTBot) library, EstebanP27 for his [tutorial]((https://www.instructables.com/id/Smart-Plant-Watering-Using-ThingSpeaks-and-Powered/)) from which I learned a lot for this project! I would also like to thanks [svgrepo](https://www.svgrepo.com) from which I used SVGs as a basis for the logo.
