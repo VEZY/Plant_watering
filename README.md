@@ -114,7 +114,13 @@ But keep in mind that it's still cheaper than a pre-built system, and with a lot
 
 ### Assembly
 
-Coming soon...  
+You can find the assembly of the parts using [Fritzing](https://fritzing.org/home/) to open [the Fritzing project](Fritzing_project.fzz) in this repository. Here is a view of the whole schematic:
+
+![Breadboard view](fritzing/Plant_watering_components.svg)
+
+> NB: the NodeMCU is connected to the solar charge controller by a USB cable (the one in the schematic does not have one). See the [Material](#material) section for an example of a solar charge controller with a USB.
+
+I made all custom parts available in the [fritzing](https://github.com/VEZY/Plant_watering/fritzing_parts) folder (all can be found on the internet except the water floater because I made it).
 
 ## Acknowledgements
 
