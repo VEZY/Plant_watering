@@ -16,7 +16,9 @@ The steps followed by the system are as follows:
     + (🔔) the watering duration exceeds the maximum duration allowed for each watering event (`watering_max_time`). The aim here is to avoid running the pump until the water tank is empty if there is a leak in the system that would prevent the soil moisture to increase;
 - (🔔) checks that plants are watered at least every given period of time (`max_wo_water`), to avoid them to die if e.g. the soil moisture sensor is broken and return always high values ;
 
-The user is notified by Telegram messages at every important step (denoted 🔔). The user can also trigger manually an irrigation event from Telegram, even if the soil water content is higher than the given value (`max_soil_moisture`). He can also turn the whole system ON and OFF, ask if the system is up and running, or ask the current value of the soil water content.
+The user is notified by Telegram messages at every important step (denoted 🔔). The user can also trigger manually an irrigation event from Telegram, even if the soil water content is higher than the given value (`max_soil_moisture`). It is also possible to turn the whole system ON and OFF, ask if the system is up and running, or ask the current value of the soil water content.
+
+![Telegram snapshot](logo/Telegram.jpg)
 
 ## Set up yours
 
@@ -80,7 +82,7 @@ If you have them you can also add some wire strippers, but they are not indispen
 
 ### Material
 
-Here is a list of the products used to build the system. I must say that I receive no incentives from Amazon, from which all products were bought.
+Here is a list of the products used to build the system. I must say that I don't receive any incentives from Amazon, from which all products were bought.
 
 To control the system:
 - [NodeMCU board (ESP8266)](https://www.amazon.fr/gp/product/B0754HWZSQ/ref=ppx_od_dt_b_asin_title_s02?ie=UTF8&psc=1) for the brain, 17.99€
