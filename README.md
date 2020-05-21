@@ -4,6 +4,7 @@
 
 This project presents a smart autonomous plant watering system. The system is autonomous in energy using a 12v battery and a solar panel, and water the plant when the right conditions are all set, with a well thought (I hope) fail-proof system. It is smart because it communicates with the user(s) through the Telegram app.
 
+
 The steps followed by the system are as follows:
 - the soil water content is always monitored;
 - if the soil water content is below a certain value (`max_soil_moisture`), the system:
@@ -20,7 +21,7 @@ The user is notified by Telegram messages at every important step (denoted 🔔)
 
 ![Telegram snapshot](logo/Telegram.jpg)
 
-> When you go out for vacations, simply add a friend to the Telegram group so they know when to visit your house to fill up the water tank! 
+> When you go out for vacations, simply add a friend to the Telegram group so they know when to visit your house to fill up the water tank!
 
 ## Set up yours
 

@@ -18,6 +18,7 @@ CTBotInlineKeyboard myKbd;  // custom inline keyboard object helper
 #define PUMP_ON_CALLBACK "pumpON"             // callback data sent when "Turn on the water pump" button is pressed
 
 #define Bot_mtbs 1000 //mean time between scan messages
+#define Bot_mtbs_2 86400000 //mean time between messages for "no plant wattering since X days"
 long Bot_lasttime;   //last time messages' scan has been done
 
 #define interval 500 // Interval between readings
@@ -51,10 +52,10 @@ int watering_interval_min = 10800000L; // Minimal time to wait before two waterr
 long last_watering_start = 0.0 ;      // time since the waterring event as been started
 long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
-long max_wo_water = 259200000L; // Maximum days without wattering until notification to say there's probably an issue with th system
+long max_wo_water = 345600000L; // Maximum days without wattering until notification to say there's probably an issue with the system
 
 
-#define max_soil_moisture 30         // Max soil moisture (stop when reached):
+#define min_soil_moisture 40         // Min soil moisture (trigger when below):
 bool unexpected_watering_end = false;// Flag unexpected end of a watering event
 
 
@@ -181,7 +182,7 @@ void loop() {
         
         myBot.sendMessage(chatID, "Starting plant wattering !");
         
-        while ((moisture_perc <= max_soil_moisture) || pump_manual_state) {
+        while ((moisture_perc <= min_soil_moisture) || pump_manual_state) {
 
           // Check if there is water in the tank:
           water_level= digitalRead(tank_floater);
@@ -222,12 +223,12 @@ void loop() {
           delay(500);                // 500ms delay
         }
 
-        // Shut down the pump when wattering is finished (happens here only when soil_moisture > max_soil_moisture)
+        // Shut down the pump when wattering is finished (happens here only when soil_moisture > min_soil_moisture)
         digitalWrite(relay, LOW);
         myBot.sendMessage(chatID, (String)"Wattered the plants during "+((last_watering_end-last_watering_start)/1000)+" seconds");
       }
   
-      if ((last_watering_end > (long(millis()) + max_wo_water)) && (millis() > Bot_lasttime + Bot_mtbs)){
+      if ((last_watering_end > (long(millis()) + max_wo_water)) && (millis() > Bot_lasttime + Bot_mtbs_2)){
         // NB: using long(millis()) because at first last_watering_end is negative and millis() is an unsigned long.
         myBot.sendMessage(chatID, (String)"Plants were not wattered since "+(max_wo_water/86400000)+" days. Please check the system.");
         Bot_lasttime = millis();
