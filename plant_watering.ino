@@ -47,8 +47,8 @@ const int AirValue = 750;    // Driest value -> air value
 const int WaterValue = 280;  // Wettest value -> water value
 
 // Timer to avoid wattering for too long: 
-int watering_max_time = 300000;       // Maximal time for one wattering event (5 minutes)
-int watering_interval_min = 10800000L; // Minimal time to wait before two waterring events (3 hours here)
+int watering_max_time = 600000;       // Maximal time for one wattering event (10 minutes)
+int watering_interval_min = 7200000L; // Minimal time to wait before two waterring events (3 hours here)
 long last_watering_start = 0.0 ;      // time since the waterring event as been started
 long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
