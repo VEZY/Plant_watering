@@ -48,7 +48,7 @@ const int WaterValue = 280;  // Wettest value -> water value
 
 // Timer to avoid wattering for too long: 
 int watering_max_time = 600000;       // Maximal time for one wattering event (10 minutes)
-int watering_interval_min = 7200000L; // Minimal time to wait before two waterring events (3 hours here)
+long watering_interval_min = 7200000L; // Minimal time to wait before two waterring events (2 hours here)
 long last_watering_start = 0.0 ;      // time since the waterring event as been started
 long last_watering_end = -watering_interval_min; // time since the last waterring event as been ended
 // NB: initialized at -watering_interval_min to be able to start wattering at startup.
@@ -67,7 +67,7 @@ void setup() {
   pinMode(tank_floater, INPUT_PULLUP);
   
   Serial.println("Starting TelegramBot...");
-  myBot.setMaxConnectionRetries(15); // try 15 times to connect to the specified SSID (mySSID)
+  // myBot.setMaxConnectionRetries(15); // try 15 times to connect to the specified SSID (mySSID)
   // connect the ESP8266 to the desired access point
   myBot.wifiConnect(ssid, pass);
 
@@ -170,7 +170,10 @@ void loop() {
         }
       }
 
+      Serial.print((String)"last_watering_end  : "+last_watering_end +", watering_interval_min : "+watering_interval_min+"\n");
+
       if ((((long(millis()) > last_watering_end + watering_interval_min)||unexpected_watering_end) && (moisture_perc <= 30)) || pump_manual_state) {
+
         // /!\ START WATERING /!\
         // NB: watering can only start after a minimum given period of time (watering_interval_min), or if it terminated unexpectedly just before;
         // or if the user request a manual activation (pump_manual_state).
@@ -181,11 +184,16 @@ void loop() {
         unexpected_watering_end = false;
         
         myBot.sendMessage(chatID, "Starting plant wattering !");
+
+        Serial.print((String)"Entering watering loop. Moisture : "+moisture_perc+", min_soil_moisture : "+min_soil_moisture+"\n");
         
         while ((moisture_perc <= min_soil_moisture) || pump_manual_state) {
 
           // Check if there is water in the tank:
           water_level= digitalRead(tank_floater);
+          
+          Serial.print((String)"water_level : "+water_level+"\n");
+
           if(water_level == LOW){
             // If there is no more water in the tank during a watering event, stop the pump, and stop the event.
             digitalWrite(relay, LOW);
@@ -197,7 +205,9 @@ void loop() {
             break;
           }          
 
-          if(millis() > last_watering_start + watering_max_time){
+          Serial.print((String)"last_watering_start : "+last_watering_start+", watering_max_time : "+watering_max_time+"\n");
+
+          if(long(millis()) > last_watering_start + watering_max_time){
             // Make sure the system is not watering for more than watering_max_time, and if so, stop watering and make sure the pump is shut off.
             last_watering_end = millis();
             digitalWrite(relay, LOW);
@@ -213,6 +223,8 @@ void loop() {
             myBot.sendMessage(chatID, (String)"Plants were wattered during "+((millis()-last_watering_start)/1000)+" seconds after your request.");
             break;
           }
+
+          Serial.print((String)"Start waterring !\n");
 
           // If everything is OK, start watering:
           digitalWrite(relay, HIGH);
